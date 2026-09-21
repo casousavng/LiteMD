@@ -88,21 +88,28 @@ struct MarkdownWebView: NSViewRepresentable {
                 printInfo.rightMargin = 0
                 printInfo.orientation = .landscape
             } else {
-                // A4 vertical (595.28 x 841.89 pt)
+                // A4 vertical (595.28 x 841.89 pt) com margens A4 (20mm topo/base, 18mm laterais)
                 printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
-                printInfo.topMargin = 36
-                printInfo.bottomMargin = 36
-                printInfo.leftMargin = 36
-                printInfo.rightMargin = 36
+                printInfo.topMargin = 56.69
+                printInfo.bottomMargin = 56.69
+                printInfo.leftMargin = 51.02
+                printInfo.rightMargin = 51.02
                 printInfo.orientation = .portrait
             }
+            printInfo.horizontalPagination = .fit
+            printInfo.verticalPagination = .automatic
             printInfo.isHorizontallyCentered = true
-            printInfo.isVerticallyCentered = true
+            printInfo.isVerticallyCentered = isMarp
 
             let printOp = webView.printOperation(with: printInfo)
             printOp.showsPrintPanel = false
-            printOp.showsProgressPanel = true
-            printOp.run()
+            printOp.showsProgressPanel = false
+
+            if let window = webView.window ?? NSApplication.shared.keyWindow {
+                printOp.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+            } else {
+                printOp.run()
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -517,9 +524,6 @@ struct MarkdownWebView: NSViewRepresentable {
 
                 /* --- ESTILOS DE IMPRESSÃO E EXPORTAÇÃO PARA PDF --- */
                 @media print {
-                  @page {
-                    margin: 0;
-                  }
                   html, body {
                     width: 100% !important;
                     height: auto !important;
@@ -530,10 +534,13 @@ struct MarkdownWebView: NSViewRepresentable {
 
                   /* 1. Modo Documento Normal */
                   #content.normal-doc {
-                    padding: 40px !important;
+                    padding: 0 !important;
                     max-width: 100% !important;
                     margin: 0 !important;
                     font-size: 11pt !important;
+                  }
+                  #content.normal-doc > *:first-child {
+                    margin-top: 0 !important;
                   }
                   #content.normal-doc h1,
                   #content.normal-doc h2,
@@ -542,9 +549,9 @@ struct MarkdownWebView: NSViewRepresentable {
                     break-after: avoid;
                   }
                   #content.normal-doc pre,
-                  #content.normal-doc table,
                   #content.normal-doc .mermaid-container,
-                  #content.normal-doc blockquote {
+                  #content.normal-doc blockquote,
+                  #content.normal-doc tr {
                     page-break-inside: avoid;
                     break-inside: avoid;
                   }
@@ -605,6 +612,12 @@ struct MarkdownWebView: NSViewRepresentable {
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                   }
+                }
+              </style>
+              <style id="litemd-print-page-style">
+                @page {
+                  size: A4 portrait;
+                  margin: 20mm 18mm;
                 }
               </style>
             </head>
@@ -841,6 +854,8 @@ struct MarkdownWebView: NSViewRepresentable {
 
                   // 1. MODO MARP SLIDES
                   if (isMarpDocument(text) && typeof window.renderMarp === 'function') {
+                    const printPageStyle = document.getElementById('litemd-print-page-style');
+                    if (printPageStyle) printPageStyle.textContent = '@page { size: 1280px 720px; margin: 0; }';
                     const isFS = !!payload.isFullScreen;
                     document.body.className = `marp-active marp-mode-${mode} ${isFS ? 'is-fullscreen' : 'is-windowed'}`;
                     contentDiv.className = '';
@@ -931,6 +946,8 @@ struct MarkdownWebView: NSViewRepresentable {
                   }
 
                   // 2. MODO NORMAL (NÃO-MARP)
+                  const printPageStyle = document.getElementById('litemd-print-page-style');
+                  if (printPageStyle) printPageStyle.textContent = '@page { size: A4 portrait; margin: 20mm 18mm; }';
                   document.body.className = '';
                   contentDiv.className = 'normal-doc';
                   const styleEl = document.getElementById('marp-injected-style');
