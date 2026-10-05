@@ -74,45 +74,49 @@ struct MarkdownWebView: NSViewRepresentable {
         private func exportPDF(to targetURL: URL, isMarp: Bool) {
             guard let webView = self.webView else { return }
 
-            let printInfo = NSPrintInfo(dictionary: [
-                NSPrintInfo.AttributeKey.jobDisposition: NSPrintInfo.JobDisposition.save,
-                NSPrintInfo.AttributeKey.jobSavingURL: targetURL
-            ])
+            webView.evaluateJavaScript("typeof prepareForPDFExport === \"function\" ? prepareForPDFExport() : null") { _, _ in
+                let printInfo = NSPrintInfo(dictionary: [
+                    NSPrintInfo.AttributeKey.jobDisposition: NSPrintInfo.JobDisposition.save,
+                    NSPrintInfo.AttributeKey.jobSavingURL: targetURL
+                ])
 
-            if isMarp {
-                // 16:9 paisagem para slides (1280 x 720 px -> 960 x 540 pt a 72 dpi)
-                printInfo.paperSize = NSSize(width: 960, height: 540)
-                printInfo.topMargin = 0
-                printInfo.bottomMargin = 0
-                printInfo.leftMargin = 0
-                printInfo.rightMargin = 0
-                printInfo.orientation = .landscape
-                printInfo.horizontalPagination = .clip
-                printInfo.verticalPagination = .clip
-                printInfo.isHorizontallyCentered = true
-                printInfo.isVerticallyCentered = true
-            } else {
-                // A4 vertical (595.28 x 841.89 pt) com margens A4 (20mm topo/base, 18mm laterais)
-                printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
-                printInfo.topMargin = 56.69
-                printInfo.bottomMargin = 56.69
-                printInfo.leftMargin = 51.02
-                printInfo.rightMargin = 51.02
-                printInfo.orientation = .portrait
-                printInfo.horizontalPagination = .fit
-                printInfo.verticalPagination = .automatic
-                printInfo.isHorizontallyCentered = true
-                printInfo.isVerticallyCentered = false
-            }
+                if isMarp {
+                    // 16:9 paisagem para slides (1280 x 720 px -> 960 x 540 pt a 72 dpi)
+                    printInfo.paperSize = NSSize(width: 960, height: 540)
+                    printInfo.topMargin = 0
+                    printInfo.bottomMargin = 0
+                    printInfo.leftMargin = 0
+                    printInfo.rightMargin = 0
+                    printInfo.orientation = .landscape
+                    printInfo.horizontalPagination = .clip
+                    printInfo.verticalPagination = .clip
+                    printInfo.isHorizontallyCentered = true
+                    printInfo.isVerticallyCentered = true
+                } else {
+                    // A4 vertical (595.28 x 841.89 pt) com margens A4 (20mm topo/base, 18mm laterais)
+                    printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
+                    printInfo.topMargin = 56.69
+                    printInfo.bottomMargin = 56.69
+                    printInfo.leftMargin = 51.02
+                    printInfo.rightMargin = 51.02
+                    printInfo.orientation = .portrait
+                    printInfo.horizontalPagination = .fit
+                    printInfo.verticalPagination = .automatic
+                    printInfo.isHorizontallyCentered = true
+                    printInfo.isVerticallyCentered = false
+                }
 
-            let printOp = webView.printOperation(with: printInfo)
-            printOp.showsPrintPanel = false
-            printOp.showsProgressPanel = false
+                let printOp = webView.printOperation(with: printInfo)
+                printOp.showsPrintPanel = false
+                printOp.showsProgressPanel = false
 
-            if let window = webView.window ?? NSApplication.shared.keyWindow {
-                printOp.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
-            } else {
-                printOp.run()
+                if let window = webView.window ?? NSApplication.shared.keyWindow {
+                    printOp.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+                } else {
+                    printOp.run()
+                }
+
+                webView.evaluateJavaScript("typeof finishPDFExport === \"function\" ? finishPDFExport() : null", completionHandler: nil)
             }
         }
 
@@ -529,8 +533,10 @@ struct MarkdownWebView: NSViewRepresentable {
                 /* --- ESTILOS DE IMPRESSÃO E EXPORTAÇÃO PARA PDF --- */
                 @media print {
                   html, body {
-                    width: 100% !important;
+                    width: 1280px !important;
                     height: auto !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                     background: transparent !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
@@ -565,10 +571,14 @@ struct MarkdownWebView: NSViewRepresentable {
                     background: transparent !important;
                     margin: 0 !important;
                     padding: 0 !important;
+                    display: block !important;
+                    width: 1280px !important;
+                    height: auto !important;
                   }
                   body.marp-active #content {
                     margin: 0 !important;
                     padding: 0 !important;
+                    width: 1280px !important;
                   }
                   body.marp-active .presentation-hud,
                   body.marp-active .marp-list-badge {
@@ -610,11 +620,16 @@ struct MarkdownWebView: NSViewRepresentable {
                     box-shadow: none !important;
                     border-radius: 0 !important;
                     border: none !important;
-                    page-break-after: always !important;
                     break-after: page !important;
-                    page-break-inside: avoid !important;
+                    page-break-after: always !important;
                     break-inside: avoid !important;
+                    page-break-inside: avoid !important;
                     overflow: hidden !important;
+                  }
+                  .presentation-slide-view:last-child,
+                  .marp-list-item:last-child {
+                    break-after: auto !important;
+                    page-break-after: auto !important;
                   }
                   body.marp-active section {
                     width: 1280px !important;
@@ -626,11 +641,14 @@ struct MarkdownWebView: NSViewRepresentable {
                     border: none !important;
                     margin: 0 !important;
                     overflow: hidden !important;
-                    page-break-inside: avoid !important;
                     break-inside: avoid !important;
+                    page-break-inside: avoid !important;
+                    break-after: auto !important;
+                    page-break-after: auto !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
-                  }                }
+                  }
+                }
               </style>
               <style id="litemd-print-page-style">
                 @page {
@@ -643,11 +661,42 @@ struct MarkdownWebView: NSViewRepresentable {
               <div id="content"></div>
               <script>
                 let currentPayload = null;
+
+                function prepareForPDFExport() {
+                  document.body.classList.add('is-exporting-pdf');
+                  const stage = document.querySelector('.presentation-stage');
+                  if (stage) {
+                    stage.style.width = 'auto';
+                    stage.style.height = 'auto';
+                  }
+                  const scaler = document.querySelector('.presentation-scaler');
+                  if (scaler) {
+                    scaler.style.transform = 'none';
+                  }
+                  document.querySelectorAll('.presentation-slide-view').forEach(sl => {
+                    sl.style.display = 'block';
+                  });
+                  document.querySelectorAll('.marp-list-item').forEach(item => {
+                    item.style.width = 'auto';
+                    item.style.height = 'auto';
+                    const s = item.querySelector('.marp-list-scaler');
+                    if (s) s.style.transform = 'none';
+                  });
+                }
+
+                function finishPDFExport() {
+                  document.body.classList.remove('is-exporting-pdf');
+                  adjustLayout();
+                  if (document.body.classList.contains('marp-mode-presentation')) {
+                    showSlide(activeSlideIndex);
+                  }
+                }
+
                 let activeSlideIndex = 0;
                 let totalSlides = 0;
 
                 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                mermaid.initialize({
+                if (window.mermaid) mermaid.initialize({
                   startOnLoad: false,
                   theme: isDark ? 'dark' : 'default',
                   securityLevel: 'loose'
