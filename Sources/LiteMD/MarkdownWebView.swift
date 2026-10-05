@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import PDFKit
 
 enum SlideViewMode: String, CaseIterable {
     case presentation = "presentation"
@@ -72,51 +73,87 @@ struct MarkdownWebView: NSViewRepresentable {
         }
 
         private func exportPDF(to targetURL: URL, isMarp: Bool) {
+            guard self.webView != nil else { return }
+
+            if isMarp {
+                exportMarpPDF(to: targetURL)
+            } else {
+                exportNormalPDF(to: targetURL)
+            }
+        }
+
+        private func exportMarpPDF(to targetURL: URL) {
             guard let webView = self.webView else { return }
 
-            webView.evaluateJavaScript("typeof prepareForPDFExport === \"function\" ? prepareForPDFExport() : null") { _, _ in
-                let printInfo = NSPrintInfo(dictionary: [
-                    NSPrintInfo.AttributeKey.jobDisposition: NSPrintInfo.JobDisposition.save,
-                    NSPrintInfo.AttributeKey.jobSavingURL: targetURL
-                ])
+            webView.evaluateJavaScript("prepareForPDFExport()") { [weak self, weak webView] result, error in
+                guard let _ = self, let webView = webView else { return }
+                let totalSlides = (result as? Int) ?? 0
 
-                if isMarp {
-                    // 16:9 paisagem para slides (1280 x 720 px -> 960 x 540 pt a 72 dpi)
-                    printInfo.paperSize = NSSize(width: 960, height: 540)
-                    printInfo.topMargin = 0
-                    printInfo.bottomMargin = 0
-                    printInfo.leftMargin = 0
-                    printInfo.rightMargin = 0
-                    printInfo.orientation = .landscape
-                    printInfo.horizontalPagination = .clip
-                    printInfo.verticalPagination = .clip
-                    printInfo.isHorizontallyCentered = true
-                    printInfo.isVerticallyCentered = true
-                } else {
-                    // A4 vertical (595.28 x 841.89 pt) com margens A4 (20mm topo/base, 18mm laterais)
-                    printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
-                    printInfo.topMargin = 56.69
-                    printInfo.bottomMargin = 56.69
-                    printInfo.leftMargin = 51.02
-                    printInfo.rightMargin = 51.02
-                    printInfo.orientation = .portrait
-                    printInfo.horizontalPagination = .fit
-                    printInfo.verticalPagination = .automatic
-                    printInfo.isHorizontallyCentered = true
-                    printInfo.isVerticallyCentered = false
+                guard totalSlides > 0 else {
+                    webView.evaluateJavaScript("finishPDFExport()", completionHandler: nil)
+                    return
                 }
 
-                let printOp = webView.printOperation(with: printInfo)
-                printOp.showsPrintPanel = false
-                printOp.showsProgressPanel = false
+                let finalPDFDoc = PDFDocument()
+                var capturedCount = 0
 
-                if let window = webView.window ?? NSApplication.shared.keyWindow {
-                    printOp.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
-                } else {
-                    printOp.run()
+                func captureSlide(at index: Int) {
+                    guard index < totalSlides else {
+                        finalPDFDoc.write(to: targetURL)
+                        webView.evaluateJavaScript("finishPDFExport()", completionHandler: nil)
+                        return
+                    }
+
+                    let config = WKPDFConfiguration()
+                    config.rect = CGRect(x: 0, y: CGFloat(index * 720), width: 1280, height: 720)
+
+                    webView.createPDF(configuration: config) { result in
+                        switch result {
+                        case .success(let data):
+                            if let singlePageDoc = PDFDocument(data: data),
+                               let page = singlePageDoc.page(at: 0) {
+                                finalPDFDoc.insert(page, at: capturedCount)
+                                capturedCount += 1
+                            }
+                        case .failure(let err):
+                            print("Error capturing slide \(index): \(err)")
+                        }
+                        captureSlide(at: index + 1)
+                    }
                 }
 
-                webView.evaluateJavaScript("typeof finishPDFExport === \"function\" ? finishPDFExport() : null", completionHandler: nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    captureSlide(at: 0)
+                }
+            }
+        }
+
+        private func exportNormalPDF(to targetURL: URL) {
+            guard let webView = self.webView else { return }
+
+            let printInfo = NSPrintInfo(dictionary: [
+                NSPrintInfo.AttributeKey.jobDisposition: NSPrintInfo.JobDisposition.save,
+                NSPrintInfo.AttributeKey.jobSavingURL: targetURL
+            ])
+            printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
+            printInfo.topMargin = 56.69
+            printInfo.bottomMargin = 56.69
+            printInfo.leftMargin = 51.02
+            printInfo.rightMargin = 51.02
+            printInfo.orientation = .portrait
+            printInfo.horizontalPagination = .fit
+            printInfo.verticalPagination = .automatic
+            printInfo.isHorizontallyCentered = true
+            printInfo.isVerticallyCentered = false
+
+            let printOp = webView.printOperation(with: printInfo)
+            printOp.showsPrintPanel = false
+            printOp.showsProgressPanel = false
+
+            if let window = webView.window ?? NSApplication.shared.keyWindow {
+                printOp.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+            } else {
+                printOp.run()
             }
         }
 
@@ -356,6 +393,36 @@ struct MarkdownWebView: NSViewRepresentable {
                 }
                 .mermaid {
                   text-align: center;
+                }
+
+                /* --- ESTILO DE EXPORTAÇÃO DIRETA DE SLIDES MARP --- */
+                body.marp-export-pdf {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: transparent !important;
+                  width: 1280px !important;
+                }
+                #marp-export-container {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  display: block !important;
+                  width: 1280px !important;
+                }
+                body.marp-export-pdf section {
+                  display: flex !important;
+                  flex-direction: column !important;
+                  width: 1280px !important;
+                  height: 720px !important;
+                  min-width: 1280px !important;
+                  max-width: 1280px !important;
+                  min-height: 720px !important;
+                  max-height: 720px !important;
+                  box-sizing: border-box !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  overflow: hidden !important;
                 }
 
                 /* --- MODO MARP: COMUM A AMBAS AS VISTAS --- */
@@ -628,14 +695,13 @@ struct MarkdownWebView: NSViewRepresentable {
                 let exportRestoreState = null;
 
                 function prepareForPDFExport() {
-                  if (!document.body.classList.contains('marp-active')) return;
-                  
                   const sections = document.querySelectorAll('section');
-                  if (!sections || sections.length === 0) return;
+                  if (!sections || sections.length === 0) return 0;
                   
                   exportRestoreState = {
                     bodyClass: document.body.className,
                     bodyHtml: document.body.innerHTML,
+                    bodyBg: document.body.style.backgroundColor,
                     activeSlide: activeSlideIndex
                   };
 
@@ -644,14 +710,17 @@ struct MarkdownWebView: NSViewRepresentable {
                     cleanSectionsHtml += sec.outerHTML;
                   });
 
-                  document.body.className = 'marp-export-print marp-active';
-                  document.body.innerHTML = '<div id="marp-print-container">' + cleanSectionsHtml + '</div>';
+                  document.body.className = 'marp-export-pdf';
+                  document.body.style.backgroundColor = 'transparent';
+                  document.body.innerHTML = '<div id="marp-export-container">' + cleanSectionsHtml + '</div>';
+                  return sections.length;
                 }
 
                 function finishPDFExport() {
                   if (!exportRestoreState) return;
                   document.body.className = exportRestoreState.bodyClass;
                   document.body.innerHTML = exportRestoreState.bodyHtml;
+                  document.body.style.backgroundColor = exportRestoreState.bodyBg;
                   const targetIndex = exportRestoreState.activeSlide;
                   exportRestoreState = null;
                   
