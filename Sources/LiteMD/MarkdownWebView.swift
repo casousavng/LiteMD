@@ -533,7 +533,7 @@ struct MarkdownWebView: NSViewRepresentable {
                 /* --- ESTILOS DE IMPRESSÃO E EXPORTAÇÃO PARA PDF --- */
                 @media print {
                   html, body {
-                    width: 1280px !important;
+                    width: 100% !important;
                     height: auto !important;
                     margin: 0 !important;
                     padding: 0 !important;
@@ -567,6 +567,7 @@ struct MarkdownWebView: NSViewRepresentable {
                   }
 
                   /* 2. Modo Apresentação Marp (16:9 - 1 slide por página) */
+                  body.marp-export-print,
                   body.marp-active {
                     background: transparent !important;
                     margin: 0 !important;
@@ -575,78 +576,41 @@ struct MarkdownWebView: NSViewRepresentable {
                     width: 1280px !important;
                     height: auto !important;
                   }
-                  body.marp-active #content {
+                  #marp-print-container {
                     margin: 0 !important;
                     padding: 0 !important;
-                    width: 1280px !important;
-                  }
-                  body.marp-active .presentation-hud,
-                  body.marp-active .marp-list-badge {
-                    display: none !important;
-                  }
-                  .presentation-stage,
-                  .marp-list-deck {
-                    display: block !important;
-                    width: auto !important;
-                    height: auto !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    gap: 0 !important;
-                    box-shadow: none !important;
-                    border-radius: 0 !important;
-                    border: none !important;
-                    transform: none !important;
-                    overflow: visible !important;
-                  }
-                  .presentation-scaler,
-                  .marp-list-scaler {
-                    display: block !important;
-                    width: auto !important;
-                    height: auto !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    transform: none !important;
-                    overflow: visible !important;
-                  }
-                  .presentation-slide-view,
-                  .marp-list-item {
                     display: block !important;
                     width: 1280px !important;
-                    height: 720px !important;
-                    min-height: 720px !important;
-                    max-height: 720px !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    box-shadow: none !important;
-                    border-radius: 0 !important;
-                    border: none !important;
-                    break-after: page !important;
-                    page-break-after: always !important;
-                    break-inside: avoid !important;
-                    page-break-inside: avoid !important;
-                    overflow: hidden !important;
                   }
-                  .presentation-slide-view:last-child,
-                  .marp-list-item:last-child {
-                    break-after: auto !important;
-                    page-break-after: auto !important;
-                  }
+                  body.marp-export-print section,
                   body.marp-active section {
+                    display: flex !important;
+                    flex-direction: column !important;
                     width: 1280px !important;
                     height: 720px !important;
+                    min-width: 1280px !important;
+                    max-width: 1280px !important;
                     min-height: 720px !important;
                     max-height: 720px !important;
+                    box-sizing: border-box !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
                     border: none !important;
                     margin: 0 !important;
                     overflow: hidden !important;
-                    break-inside: avoid !important;
                     page-break-inside: avoid !important;
-                    break-after: auto !important;
-                    page-break-after: auto !important;
+                    break-inside: avoid !important;
+                    page-break-before: always !important;
+                    break-before: page !important;
+                    page-break-after: avoid !important;
+                    break-after: avoid !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
+                  }
+                  body.marp-export-print section:first-child,
+                  body.marp-active section:first-child {
+                    page-break-before: auto !important;
+                    break-before: auto !important;
                   }
                 }
               </style>
@@ -661,34 +625,39 @@ struct MarkdownWebView: NSViewRepresentable {
               <div id="content"></div>
               <script>
                 let currentPayload = null;
+                let exportRestoreState = null;
 
                 function prepareForPDFExport() {
-                  document.body.classList.add('is-exporting-pdf');
-                  const stage = document.querySelector('.presentation-stage');
-                  if (stage) {
-                    stage.style.width = 'auto';
-                    stage.style.height = 'auto';
-                  }
-                  const scaler = document.querySelector('.presentation-scaler');
-                  if (scaler) {
-                    scaler.style.transform = 'none';
-                  }
-                  document.querySelectorAll('.presentation-slide-view').forEach(sl => {
-                    sl.style.display = 'block';
+                  if (!document.body.classList.contains('marp-active')) return;
+                  
+                  const sections = document.querySelectorAll('section');
+                  if (!sections || sections.length === 0) return;
+                  
+                  exportRestoreState = {
+                    bodyClass: document.body.className,
+                    bodyHtml: document.body.innerHTML,
+                    activeSlide: activeSlideIndex
+                  };
+
+                  let cleanSectionsHtml = '';
+                  sections.forEach(sec => {
+                    cleanSectionsHtml += sec.outerHTML;
                   });
-                  document.querySelectorAll('.marp-list-item').forEach(item => {
-                    item.style.width = 'auto';
-                    item.style.height = 'auto';
-                    const s = item.querySelector('.marp-list-scaler');
-                    if (s) s.style.transform = 'none';
-                  });
+
+                  document.body.className = 'marp-export-print marp-active';
+                  document.body.innerHTML = '<div id="marp-print-container">' + cleanSectionsHtml + '</div>';
                 }
 
                 function finishPDFExport() {
-                  document.body.classList.remove('is-exporting-pdf');
+                  if (!exportRestoreState) return;
+                  document.body.className = exportRestoreState.bodyClass;
+                  document.body.innerHTML = exportRestoreState.bodyHtml;
+                  const targetIndex = exportRestoreState.activeSlide;
+                  exportRestoreState = null;
+                  
                   adjustLayout();
                   if (document.body.classList.contains('marp-mode-presentation')) {
-                    showSlide(activeSlideIndex);
+                    showSlide(targetIndex);
                   }
                 }
 
