@@ -80,17 +80,17 @@ struct MarkdownWebView: NSViewRepresentable {
             ])
 
             if isMarp {
-                // 16:9 proporção para slides (1280 x 720 px -> 960 x 540 pt a 72 dpi)
+                // 16:9 paisagem para slides (1280 x 720 px -> 960 x 540 pt a 72 dpi)
                 printInfo.paperSize = NSSize(width: 960, height: 540)
                 printInfo.topMargin = 0
                 printInfo.bottomMargin = 0
                 printInfo.leftMargin = 0
                 printInfo.rightMargin = 0
-                printInfo.orientation = .portrait
+                printInfo.orientation = .landscape
                 printInfo.horizontalPagination = .clip
                 printInfo.verticalPagination = .clip
-                printInfo.isHorizontallyCentered = false
-                printInfo.isVerticallyCentered = false
+                printInfo.isHorizontallyCentered = true
+                printInfo.isVerticallyCentered = true
             } else {
                 // A4 vertical (595.28 x 841.89 pt) com margens A4 (20mm topo/base, 18mm laterais)
                 printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
@@ -563,12 +563,10 @@ struct MarkdownWebView: NSViewRepresentable {
                   /* 2. Modo Apresentação Marp (16:9 - 1 slide por página) */
                   body.marp-active {
                     background: transparent !important;
-                    width: 1280px !important;
                     margin: 0 !important;
                     padding: 0 !important;
                   }
                   body.marp-active #content {
-                    width: 1280px !important;
                     margin: 0 !important;
                     padding: 0 !important;
                   }
@@ -579,23 +577,26 @@ struct MarkdownWebView: NSViewRepresentable {
                   .presentation-stage,
                   .marp-list-deck {
                     display: block !important;
-                    width: 1280px !important;
+                    width: auto !important;
                     height: auto !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     gap: 0 !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
+                    border: none !important;
                     transform: none !important;
+                    overflow: visible !important;
                   }
                   .presentation-scaler,
                   .marp-list-scaler {
                     display: block !important;
-                    width: 1280px !important;
-                    height: 720px !important;
+                    width: auto !important;
+                    height: auto !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     transform: none !important;
+                    overflow: visible !important;
                   }
                   .presentation-slide-view,
                   .marp-list-item {
@@ -608,18 +609,12 @@ struct MarkdownWebView: NSViewRepresentable {
                     padding: 0 !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
-                    break-before: page !important;
-                    break-after: page !important;
-                    page-break-before: always !important;
+                    border: none !important;
                     page-break-after: always !important;
-                    break-inside: avoid !important;
+                    break-after: page !important;
                     page-break-inside: avoid !important;
+                    break-inside: avoid !important;
                     overflow: hidden !important;
-                  }
-                  .presentation-slide-view:first-child,
-                  .marp-list-item:first-child {
-                    break-before: auto !important;
-                    page-break-before: auto !important;
                   }
                   body.marp-active section {
                     width: 1280px !important;
@@ -628,14 +623,14 @@ struct MarkdownWebView: NSViewRepresentable {
                     max-height: 720px !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
+                    border: none !important;
                     margin: 0 !important;
                     overflow: hidden !important;
-                    break-inside: avoid !important;
                     page-break-inside: avoid !important;
+                    break-inside: avoid !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
-                  }
-                }
+                  }                }
               </style>
               <style id="litemd-print-page-style">
                 @page {
