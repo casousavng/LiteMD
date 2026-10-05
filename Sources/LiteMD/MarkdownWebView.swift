@@ -80,13 +80,17 @@ struct MarkdownWebView: NSViewRepresentable {
             ])
 
             if isMarp {
-                // 16:9 proporção para slides (1280 x 720 pt)
-                printInfo.paperSize = NSSize(width: 1280, height: 720)
+                // 16:9 proporção para slides (1280 x 720 px -> 960 x 540 pt a 72 dpi)
+                printInfo.paperSize = NSSize(width: 960, height: 540)
                 printInfo.topMargin = 0
                 printInfo.bottomMargin = 0
                 printInfo.leftMargin = 0
                 printInfo.rightMargin = 0
-                printInfo.orientation = .landscape
+                printInfo.orientation = .portrait
+                printInfo.horizontalPagination = .clip
+                printInfo.verticalPagination = .clip
+                printInfo.isHorizontallyCentered = false
+                printInfo.isVerticallyCentered = false
             } else {
                 // A4 vertical (595.28 x 841.89 pt) com margens A4 (20mm topo/base, 18mm laterais)
                 printInfo.paperSize = NSSize(width: 595.28, height: 841.89)
@@ -95,11 +99,11 @@ struct MarkdownWebView: NSViewRepresentable {
                 printInfo.leftMargin = 51.02
                 printInfo.rightMargin = 51.02
                 printInfo.orientation = .portrait
+                printInfo.horizontalPagination = .fit
+                printInfo.verticalPagination = .automatic
+                printInfo.isHorizontallyCentered = true
+                printInfo.isVerticallyCentered = false
             }
-            printInfo.horizontalPagination = .fit
-            printInfo.verticalPagination = .automatic
-            printInfo.isHorizontallyCentered = true
-            printInfo.isVerticallyCentered = isMarp
 
             let printOp = webView.printOperation(with: printInfo)
             printOp.showsPrintPanel = false
@@ -559,56 +563,75 @@ struct MarkdownWebView: NSViewRepresentable {
                   /* 2. Modo Apresentação Marp (16:9 - 1 slide por página) */
                   body.marp-active {
                     background: transparent !important;
+                    width: 1280px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                  }
+                  body.marp-active #content {
+                    width: 1280px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                   }
                   body.marp-active .presentation-hud,
                   body.marp-active .marp-list-badge {
                     display: none !important;
                   }
-                  .presentation-stage {
-                    width: 1280px !important;
-                    height: auto !important;
-                    box-shadow: none !important;
-                    border-radius: 0 !important;
-                    display: block !important;
-                  }
-                  .presentation-scaler {
-                    transform: none !important;
-                    width: 1280px !important;
-                    height: auto !important;
-                  }
-                  .presentation-slide-view {
-                    display: block !important;
-                    width: 1280px !important;
-                    height: 720px !important;
-                    page-break-inside: avoid !important;
-                    page-break-after: always !important;
-                    break-after: page !important;
-                  }
+                  .presentation-stage,
                   .marp-list-deck {
-                    gap: 0 !important;
                     display: block !important;
-                  }
-                  .marp-list-item {
                     width: 1280px !important;
-                    height: 720px !important;
+                    height: auto !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    gap: 0 !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
-                    page-break-inside: avoid !important;
-                    page-break-after: always !important;
-                    break-after: page !important;
-                  }
-                  .marp-list-scaler {
                     transform: none !important;
+                  }
+                  .presentation-scaler,
+                  .marp-list-scaler {
+                    display: block !important;
                     width: 1280px !important;
                     height: 720px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    transform: none !important;
+                  }
+                  .presentation-slide-view,
+                  .marp-list-item {
+                    display: block !important;
+                    width: 1280px !important;
+                    height: 720px !important;
+                    min-height: 720px !important;
+                    max-height: 720px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    box-shadow: none !important;
+                    border-radius: 0 !important;
+                    break-before: page !important;
+                    break-after: page !important;
+                    page-break-before: always !important;
+                    page-break-after: always !important;
+                    break-inside: avoid !important;
+                    page-break-inside: avoid !important;
+                    overflow: hidden !important;
+                  }
+                  .presentation-slide-view:first-child,
+                  .marp-list-item:first-child {
+                    break-before: auto !important;
+                    page-break-before: auto !important;
                   }
                   body.marp-active section {
                     width: 1280px !important;
                     height: 720px !important;
-                    page-break-inside: avoid !important;
+                    min-height: 720px !important;
+                    max-height: 720px !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
                     margin: 0 !important;
+                    overflow: hidden !important;
+                    break-inside: avoid !important;
+                    page-break-inside: avoid !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                   }
