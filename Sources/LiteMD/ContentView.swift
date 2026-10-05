@@ -163,38 +163,53 @@ struct ContentView: View {
                         }
                     }) {
                         Image(systemName: "sidebar.leading")
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(showSidebar ? .accentColor : .primary)
+                            .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .keyboardShortcut("\\", modifiers: .command)
                     .help(showSidebar ? "Ocultar lista de notas (⌘\\)" : "Mostrar lista de notas (⌘\\)")
 
                     // Ações de ficheiro à esquerda
                     Button(action: newDocument) {
                         Label("Novo", systemImage: "doc.badge.plus")
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .keyboardShortcut("n", modifiers: .command)
                     .help("Criar novo documento Markdown (⌘N)")
 
                     Button(action: openFile) {
                         Label("Abrir", systemImage: "folder")
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .keyboardShortcut("o", modifiers: .command)
                     .help("Abrir ficheiro Markdown (⌘O)")
 
                     Button(action: { _ = saveFile() }) {
                         Label("Guardar", systemImage: "square.and.arrow.down")
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .keyboardShortcut("s", modifiers: .command)
                     .help("Guardar ficheiro atual (⌘S)")
 
                     Button(action: exportPDF) {
                         Label("PDF", systemImage: "arrow.down.doc")
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .keyboardShortcut("p", modifiers: [.command, .shift])
                     .help("Exportar como PDF (⌘⇧P)")
 
@@ -208,8 +223,9 @@ struct ContentView: View {
                             Label("Lista", systemImage: "rectangle.grid.1x2").tag(SlideViewMode.list)
                         }
                         .pickerStyle(.segmented)
+                        .controlSize(.large)
                         .labelsHidden()
-                        .frame(width: 190)
+                        .frame(width: 220)
                     }
 
                     // O BOTÃO PRINCIPAL: Ver / Editar / Apresentar Marp
@@ -219,15 +235,16 @@ struct ContentView: View {
                             Text(isViewing ? "Editar" : (isMarp ? "Apresentar" : "Ver"))
                                 .fontWeight(.semibold)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .tint(isViewing ? .indigo : (isMarp ? .orange : .accentColor))
                     .keyboardShortcut("e", modifiers: .command)
                     .help(isViewing ? "Voltar à edição (⌘E)" : (isMarp ? "Apresentar slides Marp (⌘E)" : "Visualizar formatado com diagramas (⌘E)"))
-                }
-                .padding(.leading, isFullScreen ? 16 : 78)
+                }                .padding(.leading, isFullScreen ? 16 : 78)
                 .padding(.trailing, 16)
                 .padding(.top, isFullScreen ? 10 : 12)
                 .padding(.bottom, 10)
