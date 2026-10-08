@@ -54,36 +54,40 @@ struct WindowAccessor: NSViewRepresentable {
     }
 }
 
+private let tutorialPlaceholderText: String = """
+# Bem-vindo ao LiteMD
+
+Edita o teu Markdown aqui e clica no botão **Ver** no topo para pré-visualizar formatado com diagramas!
+
+## Exemplo de Diagrama Mermaid
+
+```mermaid
+graph TD
+    A[Editar .md] -->|Clica em Ver| B(Visualização Formatada)
+    B -->|Clica em Editar| A
+    B --> C[Diagramas Vetoriais]
+    B --> D[Código com Syntax Highlighting]
+```
+
+## Código e Tabelas
+
+```swift
+let app = "LiteMD"
+print("Superlite e rápido!")
+```
+
+| Recurso | Suporte |
+| :--- | :--- |
+| Markdown GFM | Sim |
+| Mermaid | Sim |
+| Mac Nativo | Sim |
+"""
+
 struct ContentView: View {
     @EnvironmentObject var docManager: DocumentManager
-    @State private var markdownText: String = """
-    # Bem-vindo ao LiteMD
-
-    Edita o teu Markdown aqui e clica no botão **Ver** no topo para pré-visualizar formatado com diagramas!
-
-    ## Exemplo de Diagrama Mermaid
-
-    ```mermaid
-    graph TD
-        A[Editar .md] -->|Clica em Ver| B(Visualização Formatada)
-        B -->|Clica em Editar| A
-        B --> C[Diagramas Vetoriais]
-        B --> D[Código com Syntax Highlighting]
-    ```
-
-    ## Código e Tabelas
-
-    ```swift
-    let app = "LiteMD"
-    print("Superlite e rápido!")
-    ```
-
-    | Recurso | Suporte |
-    | :--- | :--- |
-    | Markdown GFM | Sim |
-    | Mermaid | Sim |
-    | Mac Nativo | Sim |
-    """
+    @State private var markdownText: String = ""
+    @State private var isShowingPlaceholder: Bool = true
+    @FocusState private var isEditorFocused: Bool
     @StateObject private var notesManager = NotesManager()
     @State private var showSidebar: Bool = false
     @State private var autoSaveWorkItem: DispatchWorkItem? = nil
@@ -95,25 +99,29 @@ struct ContentView: View {
     @State private var slideViewMode: SlideViewMode = .presentation
     @State private var isFullScreen: Bool = false
 
+    private var effectiveMarkdown: String {
+        (isShowingPlaceholder && markdownText.isEmpty) ? tutorialPlaceholderText : markdownText
+    }
+
     private var hideChrome: Bool {
         isFullScreen && isMarp && isViewing
     }
 
     private var lineCount: Int {
-        markdownText.components(separatedBy: .newlines).count
+        effectiveMarkdown.components(separatedBy: .newlines).count
     }
 
     private var wordCount: Int {
-        let words = markdownText.components(separatedBy: .whitespacesAndNewlines)
+        let words = effectiveMarkdown.components(separatedBy: .whitespacesAndNewlines)
         return words.filter { !$0.isEmpty }.count
     }
 
     private var charCount: Int {
-        markdownText.count
+        effectiveMarkdown.count
     }
 
     private var isMarp: Bool {
-        let trimmed = markdownText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = effectiveMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("---") else { return false }
         let parts = trimmed.components(separatedBy: "---")
         guard parts.count >= 2 else { return false }
@@ -122,13 +130,13 @@ struct ContentView: View {
     }
 
     private var marpSlideCount: Int {
-        let trimmed = markdownText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = effectiveMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmed.components(separatedBy: "\n---")
         return max(1, parts.count - 1)
     }
 
     private var frontmatterTitle: String? {
-        let trimmed = markdownText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = effectiveMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("---") else { return nil }
         let parts = trimmed.components(separatedBy: "---")
         guard parts.count >= 2 else { return nil }
@@ -280,21 +288,75 @@ struct ContentView: View {
                 ZStack {
                     if isViewing {
                         MarkdownWebView(
-                            markdown: markdownText,
+                            markdown: effectiveMarkdown,
                             fileURL: currentFileURL,
                             slideViewMode: slideViewMode,
                             isFullScreen: isFullScreen
                         )
                         .transition(.opacity)
                     } else {
-                        TextEditor(text: $markdownText)
-                            .font(.system(.body, design: .monospaced))
-                            .padding(14)
-                            .background(Color(NSColor.textBackgroundColor))
-                            .transition(.opacity)
-                            .onChange(of: markdownText) { _ in
-                                triggerAutoSave()
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $markdownText)
+                                .focused($isEditorFocused)
+                                .font(.system(.body, design: .monospaced))
+                                .padding(14)
+                                .background(Color(NSColor.textBackgroundColor))
+                                .onChange(of: markdownText) { newText in
+                                    if isShowingPlaceholder && !newText.isEmpty {
+                                        isShowingPlaceholder = false
+                                    }
+                                    triggerAutoSave()
+                                }
+
+                            if isShowingPlaceholder && markdownText.isEmpty {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "hand.tap.fill")
+                                            .foregroundColor(.accentColor)
+                                        Text("Manual do LiteMD — Clica na tela de texto para começar a escrever")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(.accentColor)
+                                        Spacer()
+                                        Button("Limpar e Escrever") {
+                                            withAnimation(.easeOut(duration: 0.15)) {
+                                                isShowingPlaceholder = false
+                                                isEditorFocused = true
+                                            }
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .controlSize(.small)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(Color.accentColor.opacity(0.12))
+                                    .cornerRadius(6)
+                                    .padding(.horizontal, 14)
+                                    .padding(.top, 10)
+
+                                    ScrollView {
+                                        Text(tutorialPlaceholderText)
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundColor(.secondary.opacity(0.55))
+                                            .padding(14)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.easeOut(duration: 0.15)) {
+                                        isShowingPlaceholder = false
+                                        isEditorFocused = true
+                                    }
+                                }
+                            } else if markdownText.isEmpty {
+                                Text("Escreve o teu Markdown aqui...")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary.opacity(0.4))
+                                    .padding(18)
+                                    .allowsHitTesting(false)
                             }
+                        }
+                        .transition(.opacity)
                     }
 
                     // Overlay visual quando arrasta ficheiro para a janela
@@ -321,9 +383,15 @@ struct ContentView: View {
                         Image(systemName: isMarp ? "play.tv.fill" : "doc.text")
                             .foregroundColor(isMarp ? .orange : .secondary)
 
-                        Text(currentFileURL?.lastPathComponent ?? "Sem título.md")
-                            .font(.system(size: 11, weight: .semibold))
-                            .lineLimit(1)
+                        if isShowingPlaceholder && markdownText.isEmpty {
+                            Text("Manual do LiteMD (Exemplo)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text(currentFileURL?.lastPathComponent ?? "Sem título.md")
+                                .font(.system(size: 11, weight: .semibold))
+                                .lineLimit(1)
+                        }
 
                         if let title = frontmatterTitle, title != currentFileURL?.lastPathComponent {
                             Text("•")
@@ -394,6 +462,15 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LiteMDTriggerExportPDFDialog"))) { _ in
             exportPDF()
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LiteMDTriggerNewDocument"))) { _ in
+            newDocument()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LiteMDTriggerOpenFile"))) { _ in
+            openFile()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LiteMDTriggerSaveFile"))) { _ in
+            _ = saveFile()
+        }
         .onDrop(of: [.fileURL], isTargeted: $isTargetedForDrop) { providers in
             guard let provider = providers.first else { return false }
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
@@ -433,6 +510,12 @@ struct ContentView: View {
     }
 
     private func newDocument() {
+        if isShowingPlaceholder {
+            isShowingPlaceholder = false
+            markdownText = ""
+            isEditorFocused = true
+            return
+        }
         let trimmed = markdownText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             showNewConfirmDialog = true
@@ -442,12 +525,14 @@ struct ContentView: View {
     }
 
     private func createNewDocument() {
-        self.markdownText = "# Sem título\n\n"
+        self.markdownText = ""
         self.currentFileURL = nil
+        self.isShowingPlaceholder = false
         self.autoSaveStatus = ""
         if isViewing {
             isViewing = false
         }
+        self.isEditorFocused = true
     }
 
     private func isMarkdown(url: URL) -> Bool {
@@ -482,6 +567,7 @@ struct ContentView: View {
             let content = try String(contentsOf: url, encoding: .utf8)
             self.markdownText = content
             self.currentFileURL = url
+            self.isShowingPlaceholder = false
             self.autoSaveStatus = ""
         } catch {
             print("Erro ao ler ficheiro: \(error)")
@@ -489,7 +575,7 @@ struct ContentView: View {
     }
 
     private func triggerAutoSave() {
-        guard let url = currentFileURL else { return }
+        guard let url = currentFileURL, !isShowingPlaceholder else { return }
         autoSaveWorkItem?.cancel()
 
         let textToSave = markdownText
@@ -519,6 +605,9 @@ struct ContentView: View {
 
     @discardableResult
     private func saveFile() -> Bool {
+        if isShowingPlaceholder && markdownText.isEmpty {
+            return false
+        }
         if let currentURL = currentFileURL {
             do {
                 try markdownText.write(to: currentURL, atomically: true, encoding: .utf8)
@@ -540,6 +629,7 @@ struct ContentView: View {
                 do {
                     try markdownText.write(to: url, atomically: true, encoding: .utf8)
                     self.currentFileURL = url
+                    self.isShowingPlaceholder = false
                     withAnimation(.easeInOut(duration: 0.2)) {
                         self.autoSaveStatus = "Guardado"
                     }

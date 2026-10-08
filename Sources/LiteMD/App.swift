@@ -44,6 +44,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.setFrame(NSRect(x: x, y: y, width: targetW, height: targetH), display: true, animate: true)
     }
 
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        return false
+    }
+
+    func application(_ application: NSApplication, shouldSaveApplicationState coder: NSCoder) -> Bool {
+        return false
+    }
+
+    func application(_ application: NSApplication, shouldRestoreApplicationState coder: NSCoder) -> Bool {
+        return false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            for window in sender.windows {
+                window.makeKeyAndOrderFront(self)
+                return true
+            }
+        }
+        return true
+    }
+
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
         let url = URL(fileURLWithPath: filename)
         DispatchQueue.main.async {
@@ -65,12 +87,34 @@ struct LiteMDApp: App {
     @StateObject private var docManager = DocumentManager.shared
 
     var body: some Scene {
-        WindowGroup {
+        Window("LiteMD", id: "main") {
             ContentView()
                 .environmentObject(docManager)
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Novo Documento") {
+                    NotificationCenter.default.post(name: Notification.Name("LiteMDTriggerNewDocument"), object: nil)
+                }
+                .keyboardShortcut("n", modifiers: .command)
+
+                Button("Abrir...") {
+                    NotificationCenter.default.post(name: Notification.Name("LiteMDTriggerOpenFile"), object: nil)
+                }
+                .keyboardShortcut("o", modifiers: .command)
+            }
+            CommandGroup(replacing: .saveItem) {
+                Button("Guardar") {
+                    NotificationCenter.default.post(name: Notification.Name("LiteMDTriggerSaveFile"), object: nil)
+                }
+                .keyboardShortcut("s", modifiers: .command)
+
+                Button("Exportar como PDF...") {
+                    NotificationCenter.default.post(name: Notification.Name("LiteMDTriggerExportPDFDialog"), object: nil)
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            }
             CommandGroup(replacing: .appInfo) {
                 Button("Sobre o LiteMD") {
                     NSApplication.shared.orderFrontStandardAboutPanel(options: [
@@ -87,12 +131,6 @@ struct LiteMDApp: App {
                         )
                     ])
                 }
-            }
-            CommandGroup(after: .saveItem) {
-                Button("Exportar como PDF...") {
-                    NotificationCenter.default.post(name: Notification.Name("LiteMDTriggerExportPDFDialog"), object: nil)
-                }
-                .keyboardShortcut("p", modifiers: [.command, .shift])
             }
         }
     }

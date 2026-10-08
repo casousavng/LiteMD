@@ -54,7 +54,7 @@ cat << 'EOF' > "${CONTENTS_DIR}/Info.plist"
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 André Sousa. Todos os direitos reservados.</string>
     <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
+    <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSDocumentsFolderUsageDescription</key>
